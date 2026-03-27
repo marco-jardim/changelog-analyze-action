@@ -4,10 +4,10 @@
   "description": "GitHub Action that uses LLMs to produce executive-friendly insights from changeset data",
   "main": "dist/index.js",
   "scripts": {
-    "build": "ncc build src/index.ts --license licenses.txt -o dist",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --sourcemap",
     "build:check": "tsc --noEmit",
-    "test": "jest --coverage",
-    "test:watch": "jest --watch",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
     "lint": "eslint src tests --ext .ts",
     "prepare": "npm run build"
   },
@@ -24,42 +24,15 @@
   "author": "marco-jardim",
   "license": "GPL-3.0",
   "dependencies": {
-    "@actions/core": "^1.10.1",
-    "@actions/github": "^6.0.0",
+    "@actions/core": "^3.0.0",
+    "@actions/github": "^9.0.0",
     "node-fetch": "^3.3.2"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.14",
-    "@types/node": "^22.10.0",
-    "@vercel/ncc": "^0.38.3",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.2.5",
-    "typescript": "^5.7.2"
-  },
-  "jest": {
-    "preset": "ts-jest",
-    "testEnvironment": "node",
-    "testMatch": [
-      "**/tests/**/*.test.ts"
-    ],
-    "coverageDirectory": "coverage",
-    "coverageReporters": [
-      "text",
-      "lcov"
-    ],
-    "collectCoverageFrom": [
-      "src/**/*.ts"
-    ],
-    "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.js$": "$1"
-    },
-    "transform": {
-      "^.+\\.tsx?$": [
-        "ts-jest",
-        {
-          "tsconfig": "tsconfig.json"
-        }
-      ]
-    }
+    "@types/node": "^25.5.0",
+    "@vitest/coverage-v8": "^4.1.2",
+    "esbuild": "^0.27.4",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
   }
 }

@@ -1,6 +1,6 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`buildPrompt – edge cases snapshot: executive/en prompt shape is stable 1`] = `
+exports[`buildPrompt – edge cases > snapshot: executive/en prompt shape is stable 1`] = `
 "You are preparing a report for a C-suite executive who needs to understand
 the business significance of this release. Focus on:
 - User-facing changes and feature launches
@@ -31,7 +31,7 @@ Response JSON schema:
 }"
 `;
 
-exports[`buildPrompt – edge cases snapshot: executive/en prompt shape is stable 2`] = `
+exports[`buildPrompt – edge cases > snapshot: executive/en prompt shape is stable 2`] = `
 "Analyze the following changeset and produce the JSON report.
 
 === CHANGESET DATA ===

@@ -2,6 +2,7 @@
  * Tests for provider selection, request format, and HTTP mocking.
  */
 
+import { vi, type Mock, beforeEach } from "vitest";
 import { createProvider, FireworksProvider, OpenAIProvider, AnthropicProvider, OllamaProvider } from "../src/providers/index.js";
 import { extractJson, buildInsightsFromLLMResponse } from "../src/providers/BaseProvider.js";
 import {
@@ -122,15 +123,15 @@ const MOCK_OLLAMA_RESPONSE = {
   done: true,
 };
 
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
+const mockFetch = vi.fn();
+vi.stubGlobal("fetch", mockFetch);
 
 beforeEach(() => {
   mockFetch.mockClear();
 });
 
-function makeFetchMock(body: unknown, status = 200): jest.Mock {
-  return jest.fn().mockResolvedValue({
+function makeFetchMock(body: unknown, status = 200): Mock {
+  return vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
     status,
     json: async () => body,
