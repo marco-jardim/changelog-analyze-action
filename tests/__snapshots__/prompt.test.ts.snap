@@ -1,0 +1,72 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`buildPrompt – edge cases snapshot: executive/en prompt shape is stable 1`] = `
+"You are preparing a report for a C-suite executive who needs to understand
+the business significance of this release. Focus on:
+- User-facing changes and feature launches
+- Revenue / retention risks or opportunities
+- Compliance, security, or availability concerns
+- High-level what changed and why it matters
+Avoid deep technical jargon. Keep language clear and concise.
+
+Write all narrative fields in English.
+
+CRITICAL RULES:
+1. Only make claims that are directly supported by the commit messages and file-change data provided.
+2. Do NOT hallucinate features, bugs, or decisions not mentioned in the data.
+3. Respond ONLY with a valid JSON object matching the schema below — no markdown fences, no commentary.
+4. If a field has no meaningful content, use an empty array [] or an empty string ''. Never omit a field.
+
+Response JSON schema:
+{
+  "highlights": ["string", "..."],          // 3–7 crisp one-liners for a slide deck
+  "what_changed": "string",                 // narrative paragraph
+  "business_impact": "string",              // paragraph on user/revenue/product impact
+  "engineering_evolution": "string",        // paragraph on tech/architecture changes
+  "operational_risks": ["string", "..."],   // 1–5 risks introduced
+  "mitigations": ["string", "..."],         // suggested mitigations (may be empty)
+  "notable_files": [                        // up to 5 files worth calling out
+    { "path": "string", "reason": "string" }
+  ]
+}"
+`;
+
+exports[`buildPrompt – edge cases snapshot: executive/en prompt shape is stable 2`] = `
+"Analyze the following changeset and produce the JSON report.
+
+=== CHANGESET DATA ===
+Repository: acme/my-service
+Range: aaa0000..bbb1111
+Total: 3 commit(s), +210/-28 lines, 4 file(s) changed
+
+--- Commit 1 ---
+SHA: aaa0000
+Author: Alice
+Date: 2026-03-27T00:00:00Z
+Message: feat(auth): add OAuth2 support
+Stats: +180/-15 across 2 file(s)
+Files:
+  ADDED    src/auth/oauth.ts (+150/-10)
+  MODIFIED src/auth/index.ts (+30/-5)
+
+--- Commit 2 ---
+SHA: bbb1111
+Author: Bob
+Date: 2026-03-27T01:00:00Z
+Message: fix(db): prevent connection leak on timeout
+Stats: +25/-8 across 1 file(s)
+Files:
+  MODIFIED src/db/pool.ts (+25/-8)
+
+--- Commit 3 ---
+SHA: ccc2222
+Author: Carol
+Date: 2026-03-27T02:00:00Z
+Message: chore: update dependencies
+Stats: +5/-5 across 1 file(s)
+Files:
+  MODIFIED package.json (+5/-5)
+=== END CHANGESET DATA ===
+
+Return only the JSON object."
+`;

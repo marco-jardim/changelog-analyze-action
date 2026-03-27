@@ -1,0 +1,78 @@
+name: 'Changelog Analyze Action'
+description: 'Analyzes changeset data using LLMs to produce executive-friendly insights (business impact, risks, highlights)'
+author: 'marco-jardim'
+
+branding:
+  icon: 'cpu'
+  color: 'purple'
+
+inputs:
+  changeset_path:
+    description: 'Path to the changeset.v1.json file produced by changelog-collect-action'
+    required: true
+
+  provider:
+    description: 'LLM provider to use. One of: fireworks, openai, anthropic, ollama'
+    required: true
+
+  model:
+    description: |
+      Model name/ID to use. Defaults per provider:
+        fireworks: accounts/fireworks/models/llama-v3p1-70b-instruct
+        openai: gpt-4o-mini
+        anthropic: claude-3-5-haiku-20241022
+        ollama: llama3.2
+    required: false
+    default: ''
+
+  api_key:
+    description: 'API key for the LLM provider. Not required for ollama.'
+    required: false
+    default: ''
+
+  base_url:
+    description: 'Base URL override. Used for ollama (default: http://localhost:11434) or custom endpoints.'
+    required: false
+    default: ''
+
+  max_tokens:
+    description: 'Maximum tokens for LLM response'
+    required: false
+    default: '2000'
+
+  prompt_profile:
+    description: 'Prompt profile to use. One of: executive, technical, brief. Default: executive'
+    required: false
+    default: 'executive'
+
+  language:
+    description: 'Output language. Supported: en, pt-BR. Default: en'
+    required: false
+    default: 'en'
+
+  fallback_on_error:
+    description: 'If true, falls back to heuristic analysis when LLM fails. Default: true'
+    required: false
+    default: 'true'
+
+  output_path:
+    description: 'Path where insights.v1.json will be written. Default: insights.v1.json'
+    required: false
+    default: 'insights.v1.json'
+
+outputs:
+  insights_path:
+    description: 'Absolute path to the generated insights.v1.json file'
+
+  provider_used:
+    description: 'The LLM provider that actually generated the insights (may differ if fallback was used)'
+
+  model_used:
+    description: 'The model that was used for analysis'
+
+  fallback_used:
+    description: 'Whether the heuristic fallback was used instead of the LLM'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
