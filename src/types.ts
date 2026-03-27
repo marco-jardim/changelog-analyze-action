@@ -6,19 +6,20 @@
 
 // ─── Changeset V1 (input from changelog-collect-action) ───────────────────────
 
-export interface FileChange {
-  path: string;
+export interface CommitHunk {
+  filename: string;
   additions: number;
   deletions: number;
-  change_type: "added" | "modified" | "deleted" | "renamed";
-  /** Only present on renamed files */
-  old_path?: string;
+  /** Raw unified-diff patch for this hunk (may be absent if truncated) */
+  patch?: string;
 }
 
-export interface CommitStats {
+export interface CommitDiffSummary {
+  files_changed: number;
   additions: number;
   deletions: number;
-  files_changed: number;
+  hunks: CommitHunk[];
+  truncated?: boolean;
 }
 
 export interface CommitEntry {
@@ -26,13 +27,14 @@ export interface CommitEntry {
   short_sha: string;
   message: string;
   author: string;
-  authored_at: string;
-  files_changed: FileChange[];
-  stats: CommitStats;
+  author_email: string;
+  timestamp: string;
+  url: string;
+  diff_summary: CommitDiffSummary;
 }
 
-export interface TotalStats {
-  commits: number;
+export interface Totals {
+  commit_count: number;
   additions: number;
   deletions: number;
   files_changed: number;
@@ -44,9 +46,10 @@ export interface ChangesetV1 {
   repo: string;
   from_sha: string;
   to_sha: string;
-  collected_at: string;
+  compare_url: string;
+  generated_at: string;
   commits: CommitEntry[];
-  total_stats: TotalStats;
+  totals: Totals;
 }
 
 // ─── Insights V1 (output) ─────────────────────────────────────────────────────

@@ -42,14 +42,14 @@ export function validateChangesetV1(raw: unknown): ValidationResult {
   validateField(errors, obj, "repo", "string");
   validateField(errors, obj, "from_sha", "string");
   validateField(errors, obj, "to_sha", "string");
-  validateField(errors, obj, "collected_at", "string");
+  validateField(errors, obj, "generated_at", "string");
 
   if (!Array.isArray(obj["commits"])) {
     errors.push("'commits' must be an array");
   }
 
-  if (typeof obj["total_stats"] !== "object" || obj["total_stats"] === null) {
-    errors.push("'total_stats' must be an object");
+  if (typeof obj["totals"] !== "object" || obj["totals"] === null) {
+    errors.push("'totals' must be an object");
   }
 
   return { valid: errors.length === 0, errors };

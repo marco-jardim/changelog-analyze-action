@@ -45,7 +45,7 @@ function extractHighlights(commits: CommitEntry[]): string[] {
   return highlights.slice(0, 7);
 }
 
-function buildWhatChanged(commits: CommitEntry[], stats: ChangesetV1["total_stats"]): string {
+function buildWhatChanged(commits: CommitEntry[], totals: ChangesetV1["totals"]): string {
   if (commits.length === 0) {
     return "No commits were included in this range.";
   }
@@ -54,8 +54,8 @@ function buildWhatChanged(commits: CommitEntry[], stats: ChangesetV1["total_stat
     .map((c) => `"${c.message.split("\n")[0]?.trim() ?? c.short_sha}"`)
     .join(", ");
   return (
-    `This release spans ${stats.commits} commit(s) by ${new Set(commits.map((c) => c.author)).size} contributor(s), ` +
-    `touching ${stats.files_changed} file(s) with +${stats.additions}/-${stats.deletions} line changes. ` +
+    `This release spans ${totals.commit_count} commit(s) by ${new Set(commits.map((c) => c.author)).size} contributor(s), ` +
+    `touching ${totals.files_changed} file(s) with +${totals.additions}/-${totals.deletions} line changes. ` +
     `Included commits: ${msgList}${commits.length > 8 ? " and more" : ""}.`
   );
 }
@@ -73,7 +73,9 @@ function detectRisks(commits: CommitEntry[]): string[] {
     risks.push("Security-related commits detected — review carefully before deploying");
   }
 
-  const highChurn = commits.filter((c) => c.stats.additions + c.stats.deletions > 200);
+  const highChurn = commits.filter(
+    (c) => c.diff_summary.additions + c.diff_summary.deletions > 200
+  );
   if (highChurn.length > 0) {
     risks.push(`${highChurn.length} commit(s) with large diffs (>200 lines) increase regression risk`);
   }
@@ -84,8 +86,8 @@ function detectRisks(commits: CommitEntry[]): string[] {
 function detectNotableFiles(commits: CommitEntry[]): NotableFile[] {
   const fileCounts: Map<string, number> = new Map();
   for (const commit of commits) {
-    for (const f of commit.files_changed) {
-      fileCounts.set(f.path, (fileCounts.get(f.path) ?? 0) + 1);
+    for (const hunk of commit.diff_summary.hunks) {
+      fileCounts.set(hunk.filename, (fileCounts.get(hunk.filename) ?? 0) + 1);
     }
   }
   return [...fileCounts.entries()]
@@ -105,7 +107,7 @@ export function generateFallbackInsights(
   changeset: ChangesetV1,
   options: AnalyzeOptions
 ): InsightsV1 {
-  const { commits, total_stats } = changeset;
+  const { commits, totals } = changeset;
 
   const featureCommits = commits.filter((c) => FEAT_RE.test(c.message));
   const perfCommits = commits.filter((c) => PERF_RE.test(c.message));
@@ -131,7 +133,7 @@ export function generateFallbackInsights(
     );
   }
   engineeringParts.push(
-    `${total_stats.files_changed} file(s) modified with a net change of +${total_stats.additions}/-${total_stats.deletions} lines`
+    `${totals.files_changed} file(s) modified with a net change of +${totals.additions}/-${totals.deletions} lines`
   );
 
   return {
@@ -146,7 +148,7 @@ export function generateFallbackInsights(
     prompt_profile: options.promptProfile,
     language: options.language,
     highlights: extractHighlights(commits),
-    what_changed: buildWhatChanged(commits, total_stats),
+    what_changed: buildWhatChanged(commits, totals),
     business_impact: businessParts.join(". ") + ".",
     engineering_evolution: engineeringParts.join(". ") + ".",
     operational_risks: detectRisks(commits),

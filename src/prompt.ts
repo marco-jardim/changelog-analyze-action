@@ -11,7 +11,7 @@
 import type {
   ChangesetV1,
   CommitEntry,
-  FileChange,
+  CommitHunk,
   PromptProfile,
   SupportedLanguage,
 } from "./types.js";
@@ -23,13 +23,12 @@ const MAX_COMMITS_VERBATIM = 40;
 /** Hard limit on notable-files entries we list per commit */
 const MAX_FILES_PER_COMMIT = 8;
 
-function summariseFileChanges(files: FileChange[]): string {
-  if (files.length === 0) return "no files tracked";
-  const shown = files.slice(0, MAX_FILES_PER_COMMIT);
-  const extra = files.length - shown.length;
+function summariseFileChanges(hunks: CommitHunk[]): string {
+  if (hunks.length === 0) return "no files tracked";
+  const shown = hunks.slice(0, MAX_FILES_PER_COMMIT);
+  const extra = hunks.length - shown.length;
   const lines = shown.map(
-    (f) =>
-      `  ${f.change_type.toUpperCase().padEnd(8)} ${f.path} (+${f.additions}/-${f.deletions})`
+    (h) => `  ${h.filename} (+${h.additions}/-${h.deletions})`
   );
   if (extra > 0) lines.push(`  …and ${extra} more file(s)`);
   return lines.join("\n");
@@ -39,20 +38,20 @@ function formatCommitBlock(commit: CommitEntry): string {
   return [
     `SHA: ${commit.short_sha}`,
     `Author: ${commit.author}`,
-    `Date: ${commit.authored_at}`,
+    `Date: ${commit.timestamp}`,
     `Message: ${commit.message}`,
-    `Stats: +${commit.stats.additions}/-${commit.stats.deletions} across ${commit.stats.files_changed} file(s)`,
-    `Files:\n${summariseFileChanges(commit.files_changed)}`,
+    `Stats: +${commit.diff_summary.additions}/-${commit.diff_summary.deletions} across ${commit.diff_summary.files_changed} file(s)`,
+    `Files:\n${summariseFileChanges(commit.diff_summary.hunks)}`,
   ].join("\n");
 }
 
 function buildChangesetSummary(changeset: ChangesetV1): string {
-  const { commits, total_stats, repo, from_sha, to_sha } = changeset;
+  const { commits, totals, repo, from_sha, to_sha } = changeset;
 
   const header = [
     `Repository: ${repo}`,
     `Range: ${from_sha.slice(0, 7)}..${to_sha.slice(0, 7)}`,
-    `Total: ${total_stats.commits} commit(s), +${total_stats.additions}/-${total_stats.deletions} lines, ${total_stats.files_changed} file(s) changed`,
+    `Total: ${totals.commit_count} commit(s), +${totals.additions}/-${totals.deletions} lines, ${totals.files_changed} file(s) changed`,
   ].join("\n");
 
   if (commits.length === 0) {

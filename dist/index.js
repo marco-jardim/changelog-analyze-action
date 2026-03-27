@@ -19111,12 +19111,12 @@ function extractHighlights(commits) {
   }
   return highlights.slice(0, 7);
 }
-function buildWhatChanged(commits, stats) {
+function buildWhatChanged(commits, totals) {
   if (commits.length === 0) {
     return "No commits were included in this range.";
   }
   const msgList = commits.slice(0, 8).map((c) => `"${c.message.split("\n")[0]?.trim() ?? c.short_sha}"`).join(", ");
-  return `This release spans ${stats.commits} commit(s) by ${new Set(commits.map((c) => c.author)).size} contributor(s), touching ${stats.files_changed} file(s) with +${stats.additions}/-${stats.deletions} line changes. Included commits: ${msgList}${commits.length > 8 ? " and more" : ""}.`;
+  return `This release spans ${totals.commit_count} commit(s) by ${new Set(commits.map((c) => c.author)).size} contributor(s), touching ${totals.files_changed} file(s) with +${totals.additions}/-${totals.deletions} line changes. Included commits: ${msgList}${commits.length > 8 ? " and more" : ""}.`;
 }
 function detectRisks(commits) {
   const risks = [];
@@ -19128,7 +19128,9 @@ function detectRisks(commits) {
   if (security.length > 0) {
     risks.push("Security-related commits detected \u2014 review carefully before deploying");
   }
-  const highChurn = commits.filter((c) => c.stats.additions + c.stats.deletions > 200);
+  const highChurn = commits.filter(
+    (c) => c.diff_summary.additions + c.diff_summary.deletions > 200
+  );
   if (highChurn.length > 0) {
     risks.push(`${highChurn.length} commit(s) with large diffs (>200 lines) increase regression risk`);
   }
@@ -19137,8 +19139,8 @@ function detectRisks(commits) {
 function detectNotableFiles(commits) {
   const fileCounts = /* @__PURE__ */ new Map();
   for (const commit of commits) {
-    for (const f of commit.files_changed) {
-      fileCounts.set(f.path, (fileCounts.get(f.path) ?? 0) + 1);
+    for (const hunk of commit.diff_summary.hunks) {
+      fileCounts.set(hunk.filename, (fileCounts.get(hunk.filename) ?? 0) + 1);
     }
   }
   return [...fileCounts.entries()].sort(([, a], [, b]) => b - a).slice(0, 5).map(([path2, count]) => ({
@@ -19147,7 +19149,7 @@ function detectNotableFiles(commits) {
   }));
 }
 function generateFallbackInsights(changeset, options) {
-  const { commits, total_stats } = changeset;
+  const { commits, totals } = changeset;
   const featureCommits = commits.filter((c) => FEAT_RE.test(c.message));
   const perfCommits = commits.filter((c) => PERF_RE.test(c.message));
   const choreCommits = commits.filter((c) => CHORE_RE.test(c.message));
@@ -19170,7 +19172,7 @@ function generateFallbackInsights(changeset, options) {
     );
   }
   engineeringParts.push(
-    `${total_stats.files_changed} file(s) modified with a net change of +${total_stats.additions}/-${total_stats.deletions} lines`
+    `${totals.files_changed} file(s) modified with a net change of +${totals.additions}/-${totals.deletions} lines`
   );
   return {
     schema_version: "1",
@@ -19184,7 +19186,7 @@ function generateFallbackInsights(changeset, options) {
     prompt_profile: options.promptProfile,
     language: options.language,
     highlights: extractHighlights(commits),
-    what_changed: buildWhatChanged(commits, total_stats),
+    what_changed: buildWhatChanged(commits, totals),
     business_impact: businessParts.join(". ") + ".",
     engineering_evolution: engineeringParts.join(". ") + ".",
     operational_risks: detectRisks(commits),
@@ -19211,12 +19213,12 @@ var DEFAULT_BASE_URLS = {
 // src/prompt.ts
 var MAX_COMMITS_VERBATIM = 40;
 var MAX_FILES_PER_COMMIT = 8;
-function summariseFileChanges(files) {
-  if (files.length === 0) return "no files tracked";
-  const shown = files.slice(0, MAX_FILES_PER_COMMIT);
-  const extra = files.length - shown.length;
+function summariseFileChanges(hunks) {
+  if (hunks.length === 0) return "no files tracked";
+  const shown = hunks.slice(0, MAX_FILES_PER_COMMIT);
+  const extra = hunks.length - shown.length;
   const lines = shown.map(
-    (f) => `  ${f.change_type.toUpperCase().padEnd(8)} ${f.path} (+${f.additions}/-${f.deletions})`
+    (h) => `  ${h.filename} (+${h.additions}/-${h.deletions})`
   );
   if (extra > 0) lines.push(`  \u2026and ${extra} more file(s)`);
   return lines.join("\n");
@@ -19225,19 +19227,19 @@ function formatCommitBlock(commit) {
   return [
     `SHA: ${commit.short_sha}`,
     `Author: ${commit.author}`,
-    `Date: ${commit.authored_at}`,
+    `Date: ${commit.timestamp}`,
     `Message: ${commit.message}`,
-    `Stats: +${commit.stats.additions}/-${commit.stats.deletions} across ${commit.stats.files_changed} file(s)`,
+    `Stats: +${commit.diff_summary.additions}/-${commit.diff_summary.deletions} across ${commit.diff_summary.files_changed} file(s)`,
     `Files:
-${summariseFileChanges(commit.files_changed)}`
+${summariseFileChanges(commit.diff_summary.hunks)}`
   ].join("\n");
 }
 function buildChangesetSummary(changeset) {
-  const { commits, total_stats, repo, from_sha, to_sha } = changeset;
+  const { commits, totals, repo, from_sha, to_sha } = changeset;
   const header = [
     `Repository: ${repo}`,
     `Range: ${from_sha.slice(0, 7)}..${to_sha.slice(0, 7)}`,
-    `Total: ${total_stats.commits} commit(s), +${total_stats.additions}/-${total_stats.deletions} lines, ${total_stats.files_changed} file(s) changed`
+    `Total: ${totals.commit_count} commit(s), +${totals.additions}/-${totals.deletions} lines, ${totals.files_changed} file(s) changed`
   ].join("\n");
   if (commits.length === 0) {
     return `${header}
@@ -19615,12 +19617,12 @@ function validateChangesetV1(raw) {
   validateField(errors, obj, "repo", "string");
   validateField(errors, obj, "from_sha", "string");
   validateField(errors, obj, "to_sha", "string");
-  validateField(errors, obj, "collected_at", "string");
+  validateField(errors, obj, "generated_at", "string");
   if (!Array.isArray(obj["commits"])) {
     errors.push("'commits' must be an array");
   }
-  if (typeof obj["total_stats"] !== "object" || obj["total_stats"] === null) {
-    errors.push("'total_stats' must be an object");
+  if (typeof obj["totals"] !== "object" || obj["totals"] === null) {
+    errors.push("'totals' must be an object");
   }
   return { valid: errors.length === 0, errors };
 }
@@ -19720,7 +19722,7 @@ async function run() {
     const jsonText = fs3.readFileSync(resolvedChangesetPath, "utf-8");
     const changeset = parseAndValidateChangeset(jsonText);
     info(
-      `Changeset: ${changeset.total_stats.commits} commit(s), ${changeset.total_stats.files_changed} file(s) changed`
+      `Changeset: ${changeset.totals.commit_count} commit(s), ${changeset.totals.files_changed} file(s) changed`
     );
     let insights;
     let usedFallback = false;

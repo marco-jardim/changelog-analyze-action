@@ -109,8 +109,8 @@ async function run(): Promise<void> {
     const changeset = parseAndValidateChangeset(jsonText);
 
     core.info(
-      `Changeset: ${changeset.total_stats.commits} commit(s), ` +
-      `${changeset.total_stats.files_changed} file(s) changed`
+      `Changeset: ${changeset.totals.commit_count} commit(s), ` +
+      `${changeset.totals.files_changed} file(s) changed`
     );
 
     // ── Call LLM (or fallback) ───────────────────────────────────────────────

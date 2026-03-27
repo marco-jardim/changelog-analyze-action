@@ -10,10 +10,11 @@ export const MINIMAL_CHANGESET: ChangesetV1 = {
   repo: "acme/my-service",
   from_sha: "abc1234567890",
   to_sha: "def4567890abc",
-  collected_at: "2026-03-27T00:00:00Z",
+  compare_url: "https://github.com/acme/my-service/compare/abc1234567890...def4567890abc",
+  generated_at: "2026-03-27T00:00:00Z",
   commits: [],
-  total_stats: {
-    commits: 0,
+  totals: {
+    commit_count: 0,
     additions: 0,
     deletions: 0,
     files_changed: 0,
@@ -26,65 +27,64 @@ export const SIMPLE_CHANGESET: ChangesetV1 = {
   repo: "acme/my-service",
   from_sha: "aaa0000000000",
   to_sha: "bbb1111111111",
-  collected_at: "2026-03-27T00:00:00Z",
+  compare_url: "https://github.com/acme/my-service/compare/aaa0000000000...bbb1111111111",
+  generated_at: "2026-03-27T00:00:00Z",
   commits: [
     {
       sha: "aaa000000000000000000000000000000000000",
       short_sha: "aaa0000",
       message: "feat(auth): add OAuth2 support",
       author: "Alice",
-      authored_at: "2026-03-27T00:00:00Z",
-      files_changed: [
-        {
-          path: "src/auth/oauth.ts",
-          additions: 150,
-          deletions: 10,
-          change_type: "added",
-        },
-        {
-          path: "src/auth/index.ts",
-          additions: 30,
-          deletions: 5,
-          change_type: "modified",
-        },
-      ],
-      stats: { additions: 180, deletions: 15, files_changed: 2 },
+      author_email: "alice@example.com",
+      timestamp: "2026-03-27T00:00:00Z",
+      url: "https://github.com/acme/my-service/commit/aaa000000000000000000000000000000000000",
+      diff_summary: {
+        files_changed: 2,
+        additions: 180,
+        deletions: 15,
+        hunks: [
+          { filename: "src/auth/oauth.ts", additions: 150, deletions: 10 },
+          { filename: "src/auth/index.ts", additions: 30, deletions: 5 },
+        ],
+      },
     },
     {
       sha: "bbb111111111111111111111111111111111111",
       short_sha: "bbb1111",
       message: "fix(db): prevent connection leak on timeout",
       author: "Bob",
-      authored_at: "2026-03-27T01:00:00Z",
-      files_changed: [
-        {
-          path: "src/db/pool.ts",
-          additions: 25,
-          deletions: 8,
-          change_type: "modified",
-        },
-      ],
-      stats: { additions: 25, deletions: 8, files_changed: 1 },
+      author_email: "bob@example.com",
+      timestamp: "2026-03-27T01:00:00Z",
+      url: "https://github.com/acme/my-service/commit/bbb111111111111111111111111111111111111",
+      diff_summary: {
+        files_changed: 1,
+        additions: 25,
+        deletions: 8,
+        hunks: [
+          { filename: "src/db/pool.ts", additions: 25, deletions: 8 },
+        ],
+      },
     },
     {
       sha: "ccc222222222222222222222222222222222222",
       short_sha: "ccc2222",
       message: "chore: update dependencies",
       author: "Carol",
-      authored_at: "2026-03-27T02:00:00Z",
-      files_changed: [
-        {
-          path: "package.json",
-          additions: 5,
-          deletions: 5,
-          change_type: "modified",
-        },
-      ],
-      stats: { additions: 5, deletions: 5, files_changed: 1 },
+      author_email: "carol@example.com",
+      timestamp: "2026-03-27T02:00:00Z",
+      url: "https://github.com/acme/my-service/commit/ccc222222222222222222222222222222222222",
+      diff_summary: {
+        files_changed: 1,
+        additions: 5,
+        deletions: 5,
+        hunks: [
+          { filename: "package.json", additions: 5, deletions: 5 },
+        ],
+      },
     },
   ],
-  total_stats: {
-    commits: 3,
+  totals: {
+    commit_count: 3,
     additions: 210,
     deletions: 28,
     files_changed: 4,
@@ -100,19 +100,20 @@ export const BREAKING_CHANGESET: ChangesetV1 = {
       short_sha: "ddd3333",
       message: "feat!: remove legacy REST API endpoints",
       author: "Dave",
-      authored_at: "2026-03-27T00:00:00Z",
-      files_changed: [
-        {
-          path: "src/api/v1/users.ts",
-          additions: 0,
-          deletions: 300,
-          change_type: "deleted",
-        },
-      ],
-      stats: { additions: 0, deletions: 300, files_changed: 1 },
+      author_email: "dave@example.com",
+      timestamp: "2026-03-27T00:00:00Z",
+      url: "https://github.com/acme/my-service/commit/ddd333333333333333333333333333333333333",
+      diff_summary: {
+        files_changed: 1,
+        additions: 0,
+        deletions: 300,
+        hunks: [
+          { filename: "src/api/v1/users.ts", additions: 0, deletions: 300 },
+        ],
+      },
     },
   ],
-  total_stats: { commits: 1, additions: 0, deletions: 300, files_changed: 1 },
+  totals: { commit_count: 1, additions: 0, deletions: 300, files_changed: 1 },
 };
 
 export const DEFAULT_ANALYZE_OPTIONS: AnalyzeOptions = {
