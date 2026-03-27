@@ -35,29 +35,37 @@ export class OllamaProvider implements LLMProvider {
       ],
     };
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120_000);
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Ollama API error ${response.status}: ${text}`);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Ollama API error ${response.status}: ${text}`);
+      }
+
+      const data = (await response.json()) as OllamaResponse;
+      const raw = data.message?.content ?? "";
+      const jsonText = extractJson(raw);
+      const parsed: unknown = JSON.parse(jsonText);
+
+      return buildInsightsFromLLMResponse(
+        parsed as Record<string, unknown>,
+        changeset,
+        options,
+        "ollama"
+      );
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const data = (await response.json()) as OllamaResponse;
-    const raw = data.message?.content ?? "";
-    const jsonText = extractJson(raw);
-    const parsed: unknown = JSON.parse(jsonText);
-
-    return buildInsightsFromLLMResponse(
-      parsed as Record<string, unknown>,
-      changeset,
-      options,
-      "ollama"
-    );
   }
 }

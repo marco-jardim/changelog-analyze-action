@@ -32,31 +32,39 @@ export class FireworksProvider implements LLMProvider {
       response_format: { type: "text" },
     };
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${options.apiKey}`,
-        Accept: "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000);
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Fireworks API error ${response.status}: ${text}`);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${options.apiKey}`,
+          Accept: "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Fireworks API error ${response.status}: ${text}`);
+      }
+
+      const data = (await response.json()) as OpenAICompatibleResponse;
+      const raw = data.choices?.[0]?.message?.content ?? "";
+      const jsonText = extractJson(raw);
+      const parsed: unknown = JSON.parse(jsonText);
+
+      return buildInsightsFromLLMResponse(
+        parsed as Record<string, unknown>,
+        changeset,
+        options,
+        "fireworks"
+      );
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const data = (await response.json()) as OpenAICompatibleResponse;
-    const raw = data.choices?.[0]?.message?.content ?? "";
-    const jsonText = extractJson(raw);
-    const parsed: unknown = JSON.parse(jsonText);
-
-    return buildInsightsFromLLMResponse(
-      parsed as Record<string, unknown>,
-      changeset,
-      options,
-      "fireworks"
-    );
   }
 }

@@ -67,7 +67,7 @@ Checklist of requirements that must be satisfied for `changelog-analyze-action` 
 
 ## Tests
 
-- [x] ≥ 12 Jest tests
+- [x] ≥ 12 Vitest tests
 - [x] Schema validation tests
 - [x] Provider selection logic tests
 - [x] Fallback behavior tests
@@ -85,7 +85,7 @@ Checklist of requirements that must be satisfied for `changelog-analyze-action` 
 
 ## Build & CI
 
-- [x] TypeScript compiled to `dist/index.js` via `@vercel/ncc`
+- [x] TypeScript compiled to `dist/index.js` via `esbuild`
 - [x] `.github/workflows/ci.yml` runs tests + build on push/PR
 - [x] `npm test` passes
 - [x] `npm run build` produces `dist/index.js`

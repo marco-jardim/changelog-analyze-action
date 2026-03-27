@@ -33,32 +33,40 @@ export class AnthropicProvider implements LLMProvider {
       temperature: 0.2,
     };
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": options.apiKey,
-        "anthropic-version": ANTHROPIC_API_VERSION,
-      },
-      body: JSON.stringify(body),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120_000);
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Anthropic API error ${response.status}: ${text}`);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": options.apiKey,
+          "anthropic-version": ANTHROPIC_API_VERSION,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Anthropic API error ${response.status}: ${text}`);
+      }
+
+      const data = (await response.json()) as AnthropicResponse;
+      const textBlock = data.content?.find((b) => b.type === "text");
+      const raw = textBlock?.text ?? "";
+      const jsonText = extractJson(raw);
+      const parsed: unknown = JSON.parse(jsonText);
+
+      return buildInsightsFromLLMResponse(
+        parsed as Record<string, unknown>,
+        changeset,
+        options,
+        "anthropic"
+      );
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const data = (await response.json()) as AnthropicResponse;
-    const textBlock = data.content?.find((b) => b.type === "text");
-    const raw = textBlock?.text ?? "";
-    const jsonText = extractJson(raw);
-    const parsed: unknown = JSON.parse(jsonText);
-
-    return buildInsightsFromLLMResponse(
-      parsed as Record<string, unknown>,
-      changeset,
-      options,
-      "anthropic"
-    );
   }
 }

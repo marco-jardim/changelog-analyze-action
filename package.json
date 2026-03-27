@@ -24,9 +24,7 @@
   "author": "marco-jardim",
   "license": "GPL-3.0",
   "dependencies": {
-    "@actions/core": "^3.0.0",
-    "@actions/github": "^9.0.0",
-    "node-fetch": "^3.3.2"
+    "@actions/core": "^3.0.0"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",

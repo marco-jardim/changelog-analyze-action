@@ -19387,30 +19387,37 @@ var AnthropicProvider = class {
       messages: [{ role: "user", content: userPrompt }],
       temperature: 0.2
     };
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": options.apiKey,
-        "anthropic-version": ANTHROPIC_API_VERSION
-      },
-      body: JSON.stringify(body)
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Anthropic API error ${response.status}: ${text}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12e4);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": options.apiKey,
+          "anthropic-version": ANTHROPIC_API_VERSION
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Anthropic API error ${response.status}: ${text}`);
+      }
+      const data = await response.json();
+      const textBlock = data.content?.find((b) => b.type === "text");
+      const raw = textBlock?.text ?? "";
+      const jsonText = extractJson(raw);
+      const parsed = JSON.parse(jsonText);
+      return buildInsightsFromLLMResponse(
+        parsed,
+        changeset,
+        options,
+        "anthropic"
+      );
+    } finally {
+      clearTimeout(timeoutId);
     }
-    const data = await response.json();
-    const textBlock = data.content?.find((b) => b.type === "text");
-    const raw = textBlock?.text ?? "";
-    const jsonText = extractJson(raw);
-    const parsed = JSON.parse(jsonText);
-    return buildInsightsFromLLMResponse(
-      parsed,
-      changeset,
-      options,
-      "anthropic"
-    );
   }
 };
 
@@ -19434,29 +19441,36 @@ var FireworksProvider = class {
       temperature: 0.2,
       response_format: { type: "text" }
     };
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${options.apiKey}`,
-        Accept: "application/json"
-      },
-      body: JSON.stringify(body)
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Fireworks API error ${response.status}: ${text}`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12e4);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${options.apiKey}`,
+          Accept: "application/json"
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Fireworks API error ${response.status}: ${text}`);
+      }
+      const data = await response.json();
+      const raw = data.choices?.[0]?.message?.content ?? "";
+      const jsonText = extractJson(raw);
+      const parsed = JSON.parse(jsonText);
+      return buildInsightsFromLLMResponse(
+        parsed,
+        changeset,
+        options,
+        "fireworks"
+      );
+    } finally {
+      clearTimeout(timeout);
     }
-    const data = await response.json();
-    const raw = data.choices?.[0]?.message?.content ?? "";
-    const jsonText = extractJson(raw);
-    const parsed = JSON.parse(jsonText);
-    return buildInsightsFromLLMResponse(
-      parsed,
-      changeset,
-      options,
-      "fireworks"
-    );
   }
 };
 
@@ -19482,27 +19496,34 @@ var OllamaProvider = class {
         { role: "user", content: userPrompt }
       ]
     };
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Ollama API error ${response.status}: ${text}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12e4);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Ollama API error ${response.status}: ${text}`);
+      }
+      const data = await response.json();
+      const raw = data.message?.content ?? "";
+      const jsonText = extractJson(raw);
+      const parsed = JSON.parse(jsonText);
+      return buildInsightsFromLLMResponse(
+        parsed,
+        changeset,
+        options,
+        "ollama"
+      );
+    } finally {
+      clearTimeout(timeoutId);
     }
-    const data = await response.json();
-    const raw = data.message?.content ?? "";
-    const jsonText = extractJson(raw);
-    const parsed = JSON.parse(jsonText);
-    return buildInsightsFromLLMResponse(
-      parsed,
-      changeset,
-      options,
-      "ollama"
-    );
   }
 };
 
@@ -19525,28 +19546,35 @@ var OpenAIProvider = class {
       ],
       temperature: 0.2
     };
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${options.apiKey}`
-      },
-      body: JSON.stringify(body)
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`OpenAI API error ${response.status}: ${text}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12e4);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${options.apiKey}`
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`OpenAI API error ${response.status}: ${text}`);
+      }
+      const data = await response.json();
+      const raw = data.choices?.[0]?.message?.content ?? "";
+      const jsonText = extractJson(raw);
+      const parsed = JSON.parse(jsonText);
+      return buildInsightsFromLLMResponse(
+        parsed,
+        changeset,
+        options,
+        "openai"
+      );
+    } finally {
+      clearTimeout(timeoutId);
     }
-    const data = await response.json();
-    const raw = data.choices?.[0]?.message?.content ?? "";
-    const jsonText = extractJson(raw);
-    const parsed = JSON.parse(jsonText);
-    return buildInsightsFromLLMResponse(
-      parsed,
-      changeset,
-      options,
-      "openai"
-    );
   }
 };
 
