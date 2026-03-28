@@ -4,6 +4,7 @@
 
 import type { AnalyzeOptions, ChangesetV1, InsightsV1 } from "../src/types.js";
 
+
 export const MINIMAL_CHANGESET: ChangesetV1 = {
   schema_version: "1",
   idempotency_key: "abc123-def456",
@@ -160,6 +161,12 @@ export function makeMockInsights(overrides?: Partial<InsightsV1>): InsightsV1 {
     mitigations: [],
     notable_files: [],
     fallback_used: false,
+    commits: [
+      { sha: "aaa000000000000000000000000000000000000", message: "feat(auth): add OAuth2 support", author: "Alice", date: "2026-03-27T00:00:00Z" },
+      { sha: "bbb111111111111111111111111111111111111", message: "fix(db): prevent connection leak on timeout", author: "Bob", date: "2026-03-27T01:00:00Z" },
+    ],
+    total_commits: 3,
+    total_files_changed: 4,
     ...overrides,
   };
 }

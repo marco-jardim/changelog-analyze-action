@@ -59,6 +59,13 @@ export interface NotableFile {
   reason: string;
 }
 
+export interface InsightsCommit {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+}
+
 export interface InsightsV1 {
   schema_version: "1";
   idempotency_key: string;
@@ -78,6 +85,10 @@ export interface InsightsV1 {
   mitigations: string[];
   notable_files: NotableFile[];
   fallback_used: boolean;
+  /** Commit summary forwarded from changeset for downstream renderers */
+  commits: InsightsCommit[];
+  total_commits: number;
+  total_files_changed: number;
 }
 
 // ─── Provider / action options ────────────────────────────────────────────────

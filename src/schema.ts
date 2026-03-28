@@ -106,6 +106,18 @@ export function validateInsightsV1(raw: unknown): ValidationResult {
     errors.push("'fallback_used' must be a boolean");
   }
 
+  if (!Array.isArray(obj["commits"])) {
+    errors.push("'commits' must be an array");
+  }
+
+  if (typeof obj["total_commits"] !== "number") {
+    errors.push("'total_commits' must be a number");
+  }
+
+  if (typeof obj["total_files_changed"] !== "number") {
+    errors.push("'total_files_changed' must be a number");
+  }
+
   return { valid: errors.length === 0, errors };
 }
 

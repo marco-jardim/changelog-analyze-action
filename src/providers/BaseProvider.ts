@@ -6,6 +6,7 @@
 import type {
   AnalyzeOptions,
   ChangesetV1,
+  InsightsCommit,
   InsightsV1,
   NotableFile,
   PromptProfile,
@@ -89,5 +90,13 @@ export function buildInsightsFromLLMResponse(
     mitigations: ensureStringArray(parsed.mitigations),
     notable_files: ensureNotableFiles(parsed.notable_files),
     fallback_used: false,
+    commits: changeset.commits.map((c): InsightsCommit => ({
+      sha: c.sha,
+      message: c.message.split("\n")[0]?.trim() ?? c.short_sha,
+      author: c.author,
+      date: c.timestamp,
+    })),
+    total_commits: changeset.totals.commit_count,
+    total_files_changed: changeset.totals.files_changed,
   };
 }

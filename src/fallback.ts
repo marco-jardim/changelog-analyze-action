@@ -7,7 +7,7 @@
  * only from commit metadata, never from speculation.
  */
 
-import type { AnalyzeOptions, ChangesetV1, CommitEntry, InsightsV1, NotableFile } from "./types.js";
+import type { AnalyzeOptions, ChangesetV1, CommitEntry, InsightsCommit, InsightsV1, NotableFile } from "./types.js";
 
 /** Conventional-commit type prefixes we recognise */
 const FEAT_RE = /^feat(\(.*?\))?[!:]?/i;
@@ -157,5 +157,13 @@ export function generateFallbackInsights(
       : [],
     notable_files: detectNotableFiles(commits),
     fallback_used: true,
+    commits: commits.map((c): InsightsCommit => ({
+      sha: c.sha,
+      message: c.message.split("\n")[0]?.trim() ?? c.short_sha,
+      author: c.author,
+      date: c.timestamp,
+    })),
+    total_commits: changeset.totals.commit_count,
+    total_files_changed: changeset.totals.files_changed,
   };
 }

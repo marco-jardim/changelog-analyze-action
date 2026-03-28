@@ -19192,7 +19192,15 @@ function generateFallbackInsights(changeset, options) {
     operational_risks: detectRisks(commits),
     mitigations: detectRisks(commits).length > 0 ? ["Review the flagged commits and run regression tests before deploying to production"] : [],
     notable_files: detectNotableFiles(commits),
-    fallback_used: true
+    fallback_used: true,
+    commits: commits.map((c) => ({
+      sha: c.sha,
+      message: c.message.split("\n")[0]?.trim() ?? c.short_sha,
+      author: c.author,
+      date: c.timestamp
+    })),
+    total_commits: changeset.totals.commit_count,
+    total_files_changed: changeset.totals.files_changed
   };
 }
 
@@ -19367,7 +19375,15 @@ function buildInsightsFromLLMResponse(parsed, changeset, options, providerName) 
     operational_risks: ensureStringArray(parsed.operational_risks),
     mitigations: ensureStringArray(parsed.mitigations),
     notable_files: ensureNotableFiles(parsed.notable_files),
-    fallback_used: false
+    fallback_used: false,
+    commits: changeset.commits.map((c) => ({
+      sha: c.sha,
+      message: c.message.split("\n")[0]?.trim() ?? c.short_sha,
+      author: c.author,
+      date: c.timestamp
+    })),
+    total_commits: changeset.totals.commit_count,
+    total_files_changed: changeset.totals.files_changed
   };
 }
 
