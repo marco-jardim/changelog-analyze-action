@@ -66,6 +66,15 @@ export interface InsightsCommit {
   date: string;
 }
 
+export interface DailyInsight {
+  date: string;                    // "2026-03-30" (YYYY-MM-DD)
+  commit_count: number;
+  highlights: string[];
+  summary: string;                 // combined what_changed + context
+  operational_risks: string[];
+  commits: InsightsCommit[];
+}
+
 export interface InsightsV1 {
   schema_version: "1";
   idempotency_key: string;
@@ -89,6 +98,8 @@ export interface InsightsV1 {
   commits: InsightsCommit[];
   total_commits: number;
   total_files_changed: number;
+  /** Per-day LLM-generated insights (populated when group_by_date is enabled) */
+  daily_insights?: DailyInsight[];
 }
 
 // ─── Provider / action options ────────────────────────────────────────────────

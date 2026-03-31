@@ -55,6 +55,11 @@ inputs:
     required: false
     default: 'true'
 
+  group_by_date:
+    description: 'If true, generate separate LLM insights for each calendar day of commits. Default: true'
+    required: false
+    default: 'true'
+
   output_path:
     description: 'Path where insights.v1.json will be written. Default: insights.v1.json'
     required: false

@@ -8,6 +8,7 @@
  */
 
 import type { AnalyzeOptions, ChangesetV1, CommitEntry, InsightsCommit, InsightsV1, NotableFile } from "./types.js";
+import { fallbackDailyInsight, groupCommitsByDate } from "./daily.js";
 
 /** Conventional-commit type prefixes we recognise */
 const FEAT_RE = /^feat(\(.*?\))?[!:]?/i;
@@ -165,5 +166,10 @@ export function generateFallbackInsights(
     })),
     total_commits: changeset.totals.commit_count,
     total_files_changed: changeset.totals.files_changed,
+    daily_insights: (() => {
+      const dateGroups = groupCommitsByDate(commits);
+      const sortedDates = [...dateGroups.keys()].sort((a, b) => b.localeCompare(a));
+      return sortedDates.map((date) => fallbackDailyInsight(date, dateGroups.get(date)!));
+    })(),
   };
 }

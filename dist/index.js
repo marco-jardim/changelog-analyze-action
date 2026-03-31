@@ -19082,6 +19082,263 @@ function info(message) {
 var fs3 = __toESM(require("fs"));
 var path = __toESM(require("path"));
 
+// src/providers/BaseProvider.ts
+function ensureStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v) => typeof v === "string");
+}
+function ensureString(value, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
+function ensureNotableFiles(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (v) => typeof v === "object" && v !== null && typeof v["path"] === "string" && typeof v["reason"] === "string"
+  );
+}
+function extractJson(raw) {
+  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch?.[1]) return fenceMatch[1].trim();
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    return raw.slice(start, end + 1);
+  }
+  return raw.trim();
+}
+function buildInsightsFromLLMResponse(parsed, changeset, options, providerName) {
+  return {
+    schema_version: "1",
+    idempotency_key: changeset.idempotency_key,
+    repo: changeset.repo,
+    from_sha: changeset.from_sha,
+    to_sha: changeset.to_sha,
+    generated_at: (/* @__PURE__ */ new Date()).toISOString(),
+    provider: providerName,
+    model: options.model,
+    prompt_profile: options.promptProfile,
+    language: options.language,
+    highlights: ensureStringArray(parsed.highlights),
+    what_changed: ensureString(parsed.what_changed),
+    business_impact: ensureString(parsed.business_impact),
+    engineering_evolution: ensureString(parsed.engineering_evolution),
+    operational_risks: ensureStringArray(parsed.operational_risks),
+    mitigations: ensureStringArray(parsed.mitigations),
+    notable_files: ensureNotableFiles(parsed.notable_files),
+    fallback_used: false,
+    commits: changeset.commits.map((c) => ({
+      sha: c.sha,
+      message: c.message.split("\n")[0]?.trim() ?? c.short_sha,
+      author: c.author,
+      date: c.timestamp
+    })),
+    total_commits: changeset.totals.commit_count,
+    total_files_changed: changeset.totals.files_changed
+  };
+}
+
+// src/daily.ts
+function groupCommitsByDate(commits) {
+  const map = /* @__PURE__ */ new Map();
+  for (const c of commits) {
+    const key = c.timestamp ? c.timestamp.slice(0, 10) : "unknown";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(c);
+  }
+  return map;
+}
+function buildDailyPrompt(date, commits, repo, language) {
+  const langInstruction = language === "pt-BR" ? "Escreva em Portugu\xEAs Brasileiro." : "Write in English.";
+  const system = `You are generating a concise daily changelog summary for ${date}.
+${langInstruction}
+
+RULES:
+1. Only reference what the commits actually contain \u2014 do not invent or speculate.
+2. Respond ONLY with valid JSON, no markdown fences, no commentary.
+3. Be concise: this should read as a quick daily digest (~3-5 sentences total).
+
+JSON schema:
+{
+  "highlights": ["string", "..."],     // 1-3 key takeaways for this day
+  "summary": "string",                 // 2-4 sentence narrative of the day's work
+  "operational_risks": ["string", ...] // 0-2 risks (empty array if none)
+}`;
+  const commitBlocks = commits.slice(0, 20).map((c, i) => {
+    const files = c.diff_summary.hunks.slice(0, 5).map((h) => `  ${h.filename} (+${h.additions}/-${h.deletions})`).join("\n");
+    return `--- Commit ${i + 1} ---
+SHA: ${c.short_sha}
+Author: ${c.author}
+Message: ${c.message}
+Stats: +${c.diff_summary.additions}/-${c.diff_summary.deletions} across ${c.diff_summary.files_changed} file(s)
+Files:
+${files}`;
+  }).join("\n\n");
+  const user = `Repository: ${repo}
+Date: ${date}
+Commits: ${commits.length}
+
+=== COMMITS ===
+${commitBlocks}
+=== END ===
+
+Return only the JSON object.`;
+  return { system, user };
+}
+function parseDailyResponse(raw, date, commits) {
+  const jsonText = extractJson(raw);
+  const parsed = JSON.parse(jsonText);
+  const ensureStrArr = (v) => Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  const ensureStr = (v) => typeof v === "string" ? v : "";
+  return {
+    date,
+    commit_count: commits.length,
+    highlights: ensureStrArr(parsed["highlights"]),
+    summary: ensureStr(parsed["summary"]),
+    operational_risks: ensureStrArr(parsed["operational_risks"]),
+    commits: commits.map(
+      (c) => ({
+        sha: c.sha,
+        message: c.message.split("\n")[0]?.trim() ?? c.short_sha,
+        author: c.author,
+        date: c.timestamp
+      })
+    )
+  };
+}
+function fallbackDailyInsight(date, commits) {
+  const msgs = commits.slice(0, 5).map((c) => c.message.split("\n")[0]?.trim() ?? c.short_sha);
+  return {
+    date,
+    commit_count: commits.length,
+    highlights: msgs.slice(0, 3),
+    summary: `${commits.length} commit(s): ${msgs.join("; ")}.`,
+    operational_risks: [],
+    commits: commits.map(
+      (c) => ({
+        sha: c.sha,
+        message: c.message.split("\n")[0]?.trim() ?? c.short_sha,
+        author: c.author,
+        date: c.timestamp
+      })
+    )
+  };
+}
+async function generateDailyInsights(changeset, provider, options, log = () => {
+}) {
+  const dateGroups = groupCommitsByDate(changeset.commits);
+  const sortedDates = [...dateGroups.keys()].sort((a, b) => b.localeCompare(a));
+  const results = [];
+  for (const date of sortedDates) {
+    const commits = dateGroups.get(date);
+    log(`Analyzing ${date} (${commits.length} commit${commits.length === 1 ? "" : "s"})\u2026`);
+    try {
+      const { system, user } = buildDailyPrompt(date, commits, changeset.repo, options.language);
+      const raw = await callProviderChat(provider, system, user, options);
+      results.push(parseDailyResponse(raw, date, commits));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log(`  Daily LLM failed for ${date}: ${msg} \u2014 using fallback`);
+      results.push(fallbackDailyInsight(date, commits));
+    }
+  }
+  return results;
+}
+async function callProviderChat(_provider, systemPrompt, userPrompt, options) {
+  const baseUrls = {
+    fireworks: "https://api.fireworks.ai/inference/v1",
+    openai: "https://api.openai.com/v1",
+    anthropic: "https://api.anthropic.com/v1",
+    ollama: "http://localhost:11434"
+  };
+  const baseUrl = options.baseUrl || baseUrls[options.provider] || baseUrls["fireworks"];
+  if (options.provider === "anthropic") {
+    const url = `${baseUrl}/messages`;
+    const body = {
+      model: options.model,
+      max_tokens: Math.min(options.maxTokens, 800),
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+      temperature: 0.2
+    };
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6e4);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": options.apiKey,
+          "anthropic-version": "2023-06-01"
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error(`Anthropic ${response.status}: ${await response.text()}`);
+      const data = await response.json();
+      return data.content?.find((b) => b.type === "text")?.text ?? "";
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  } else if (options.provider === "ollama") {
+    const url = `${baseUrl}/api/chat`;
+    const body = {
+      model: options.model,
+      stream: false,
+      options: { num_predict: Math.min(options.maxTokens, 800), temperature: 0.2 },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ]
+    };
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6e4);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error(`Ollama ${response.status}: ${await response.text()}`);
+      const data = await response.json();
+      return data.message?.content ?? "";
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  } else {
+    const url = `${baseUrl}/chat/completions`;
+    const body = {
+      model: options.model,
+      max_tokens: Math.min(options.maxTokens, 800),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.2
+    };
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6e4);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${options.apiKey}`,
+          Accept: "application/json"
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+      if (!response.ok)
+        throw new Error(`${options.provider} ${response.status}: ${await response.text()}`);
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content ?? "";
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
 // src/fallback.ts
 var FEAT_RE = /^feat(\(.*?\))?[!:]?/i;
 var FIX_RE = /^fix(\(.*?\))?[!:]?/i;
@@ -19200,7 +19457,12 @@ function generateFallbackInsights(changeset, options) {
       date: c.timestamp
     })),
     total_commits: changeset.totals.commit_count,
-    total_files_changed: changeset.totals.files_changed
+    total_files_changed: changeset.totals.files_changed,
+    daily_insights: (() => {
+      const dateGroups = groupCommitsByDate(commits);
+      const sortedDates = [...dateGroups.keys()].sort((a, b) => b.localeCompare(a));
+      return sortedDates.map((date) => fallbackDailyInsight(date, dateGroups.get(date)));
+    })()
   };
 }
 
@@ -19340,61 +19602,6 @@ function buildPrompt(changeset, profile, language) {
     "Return only the JSON object."
   ].join("\n");
   return { systemPrompt, userPrompt };
-}
-
-// src/providers/BaseProvider.ts
-function ensureStringArray(value) {
-  if (!Array.isArray(value)) return [];
-  return value.filter((v) => typeof v === "string");
-}
-function ensureString(value, fallback = "") {
-  return typeof value === "string" ? value : fallback;
-}
-function ensureNotableFiles(value) {
-  if (!Array.isArray(value)) return [];
-  return value.filter(
-    (v) => typeof v === "object" && v !== null && typeof v["path"] === "string" && typeof v["reason"] === "string"
-  );
-}
-function extractJson(raw) {
-  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch?.[1]) return fenceMatch[1].trim();
-  const start = raw.indexOf("{");
-  const end = raw.lastIndexOf("}");
-  if (start !== -1 && end !== -1 && end > start) {
-    return raw.slice(start, end + 1);
-  }
-  return raw.trim();
-}
-function buildInsightsFromLLMResponse(parsed, changeset, options, providerName) {
-  return {
-    schema_version: "1",
-    idempotency_key: changeset.idempotency_key,
-    repo: changeset.repo,
-    from_sha: changeset.from_sha,
-    to_sha: changeset.to_sha,
-    generated_at: (/* @__PURE__ */ new Date()).toISOString(),
-    provider: providerName,
-    model: options.model,
-    prompt_profile: options.promptProfile,
-    language: options.language,
-    highlights: ensureStringArray(parsed.highlights),
-    what_changed: ensureString(parsed.what_changed),
-    business_impact: ensureString(parsed.business_impact),
-    engineering_evolution: ensureString(parsed.engineering_evolution),
-    operational_risks: ensureStringArray(parsed.operational_risks),
-    mitigations: ensureStringArray(parsed.mitigations),
-    notable_files: ensureNotableFiles(parsed.notable_files),
-    fallback_used: false,
-    commits: changeset.commits.map((c) => ({
-      sha: c.sha,
-      message: c.message.split("\n")[0]?.trim() ?? c.short_sha,
-      author: c.author,
-      date: c.timestamp
-    })),
-    total_commits: changeset.totals.commit_count,
-    total_files_changed: changeset.totals.files_changed
-  };
 }
 
 // src/providers/AnthropicProvider.ts
@@ -19730,6 +19937,7 @@ async function run() {
     const promptProfile = getPromptProfile();
     const language = getLanguage();
     const fallbackOnError = (getInput("fallback_on_error") || "true").toLowerCase() !== "false";
+    const groupByDate = (getInput("group_by_date") || "true").toLowerCase() !== "false";
     const options = {
       provider,
       model,
@@ -19756,6 +19964,22 @@ async function run() {
       const llmProvider = createProvider(provider);
       insights = await llmProvider.analyze(changeset, options);
       info(`LLM analysis complete using ${provider}/${model}`);
+      if (groupByDate && changeset.commits.length > 0) {
+        info("Generating per-day insights\u2026");
+        try {
+          const llmForDaily = createProvider(provider);
+          insights.daily_insights = await generateDailyInsights(
+            changeset,
+            llmForDaily,
+            options,
+            (msg) => info(msg)
+          );
+          info(`Per-day insights generated for ${insights.daily_insights.length} day(s)`);
+        } catch (dailyError) {
+          const dailyMsg = dailyError instanceof Error ? dailyError.message : String(dailyError);
+          warning(`Per-day analysis failed: ${dailyMsg} \u2014 daily_insights will be empty`);
+        }
+      }
     } catch (llmError) {
       const msg = llmError instanceof Error ? llmError.message : String(llmError);
       warning(`LLM call failed: ${msg}`);

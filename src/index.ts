@@ -10,6 +10,7 @@ import * as core from "@actions/core";
 import * as fs from "fs";
 import * as path from "path";
 
+import { generateDailyInsights } from "./daily.js";
 import { generateFallbackInsights } from "./fallback.js";
 import { createProvider } from "./providers/index.js";
 import { parseAndValidateChangeset } from "./schema.js";
@@ -86,6 +87,7 @@ async function run(): Promise<void> {
     const promptProfile = getPromptProfile();
     const language = getLanguage();
     const fallbackOnError = (core.getInput("fallback_on_error") || "true").toLowerCase() !== "false";
+    const groupByDate = (core.getInput("group_by_date") || "true").toLowerCase() !== "false";
 
     const options: AnalyzeOptions = {
       provider,
@@ -121,6 +123,24 @@ async function run(): Promise<void> {
       const llmProvider = createProvider(provider);
       insights = await llmProvider.analyze(changeset, options);
       core.info(`LLM analysis complete using ${provider}/${model}`);
+
+      // ── Per-day analysis (if enabled) ────────────────────────────────────────
+      if (groupByDate && changeset.commits.length > 0) {
+        core.info("Generating per-day insights…");
+        try {
+          const llmForDaily = createProvider(provider);
+          insights.daily_insights = await generateDailyInsights(
+            changeset,
+            llmForDaily,
+            options,
+            (msg) => core.info(msg),
+          );
+          core.info(`Per-day insights generated for ${insights.daily_insights.length} day(s)`);
+        } catch (dailyError) {
+          const dailyMsg = dailyError instanceof Error ? dailyError.message : String(dailyError);
+          core.warning(`Per-day analysis failed: ${dailyMsg} — daily_insights will be empty`);
+        }
+      }
     } catch (llmError) {
       const msg = llmError instanceof Error ? llmError.message : String(llmError);
       core.warning(`LLM call failed: ${msg}`);

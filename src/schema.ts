@@ -118,6 +118,10 @@ export function validateInsightsV1(raw: unknown): ValidationResult {
     errors.push("'total_files_changed' must be a number");
   }
 
+  if (obj["daily_insights"] !== undefined && !Array.isArray(obj["daily_insights"])) {
+    errors.push("'daily_insights' must be an array if present");
+  }
+
   return { valid: errors.length === 0, errors };
 }
 
