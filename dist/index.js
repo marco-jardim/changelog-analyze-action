@@ -19283,7 +19283,17 @@ the business significance of this release. Focus on:
 - Revenue / retention risks or opportunities
 - Compliance, security, or availability concerns
 - High-level what changed and why it matters
-Avoid deep technical jargon. Keep language clear and concise.`,
+Avoid deep technical jargon. Keep language clear and concise.
+
+CONCISENESS CONSTRAINTS (CRITICAL):
+- highlights: 3-5 items max, one sentence each
+- what_changed: 2-3 sentences max (one short paragraph)
+- business_impact: 2-3 sentences max
+- engineering_evolution: 2-3 sentences max
+- operational_risks: 1-3 items max, one sentence each
+- mitigations: 1-2 items max
+- notable_files: max 3 files
+The entire output should fit on roughly one page when rendered.`,
   technical: `You are preparing a technical report for the engineering team. Focus on:
 - Architecture decisions, design patterns introduced or removed
 - Performance implications
