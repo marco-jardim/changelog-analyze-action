@@ -37,15 +37,19 @@ function buildDailyPrompt(
       ? "Escreva em Português Brasileiro."
       : "Write in English.";
 
-  const system = `You are generating a concise daily changelog summary for ${date}.
+  const system = `You are a JSON-only changelog generator. You MUST output raw JSON and nothing else.
 ${langInstruction}
+
+You are generating a concise daily changelog summary for ${date}.
+
+CRITICAL: Your entire response must be a single valid JSON object. No prose, no explanation, no markdown fences, no text before or after the JSON. Start your response with "{" and end with "}".
 
 RULES:
 1. Only reference what the commits actually contain — do not invent or speculate.
-2. Respond ONLY with valid JSON, no markdown fences, no commentary.
+2. Respond ONLY with valid JSON — never start with words like "The", "Here", "This", etc.
 3. Be concise: this should read as a quick daily digest (~3-5 sentences total).
 
-JSON schema:
+Required JSON schema (output EXACTLY this structure):
 {
   "highlights": ["string", "..."],     // 1-3 key takeaways for this day
   "summary": "string",                 // 2-4 sentence narrative of the day's work
@@ -77,7 +81,7 @@ Commits: ${commits.length}
 ${commitBlocks}
 === END ===
 
-Return only the JSON object.`;
+IMPORTANT: Output ONLY the JSON object. Start with "{" — no other text.`;
 
   return { system, user };
 }
@@ -254,6 +258,7 @@ async function callProviderChat(
         { role: "user", content: userPrompt },
       ],
       temperature: 0.2,
+      response_format: { type: "json_object" },
     };
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60_000);
